@@ -10,7 +10,7 @@ Cara pakai:
 
 Alur:
   Pesan masuk → Cek kata kunci → (cocok) langsung balas
-                               → (tidak cocok) tanya ke Groq AI → balas
+                               → (tidak cocok) cek mention/reply → tanya Groq AI → balas
 """
 
 import logging
@@ -120,7 +120,7 @@ def tanya_groq(pesan: str) -> str:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "llama-3.3-70b-versatile",  # Model gratis terbaik di Groq
+                "model": "llama-3.3-70b-versatile",
                 "max_tokens": 500,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -137,7 +137,7 @@ def tanya_groq(pesan: str) -> str:
 
 
 async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler utama: cek kata kunci → kalau tidak ada, tanya ke Groq AI."""
+    """Handler utama: cek kata kunci → cek mention/reply → tanya Groq AI."""
     pesan = update.message.text
     if not pesan:
         return
@@ -147,21 +147,26 @@ async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_username = f"@{context.bot.username}".lower()
     di_mention   = bot_username in pesan_lower
 
+    # Cek apakah pesan ini reply ke pesan bot
+    di_reply_ke_bot = (
+        update.message.reply_to_message is not None and
+        update.message.reply_to_message.from_user.id == context.bot.id
+    )
+
     logger.info(f"[{update.message.chat.type}] @{pengirim}: {pesan[:80]}")
 
-    # ── 1. Cek kata kunci dulu ──
+    # ── 1. Cek kata kunci dulu (selalu aktif) ──
     for kata, balasan in KATA_KUNCI.items():
         if kata in pesan_lower:
             logger.info(f"  → Kata kunci cocok: '{kata}'")
             await update.message.reply_text(balasan)
             return
 
-    # ── 2. Kalau tidak ada kata kunci → tanya Groq AI ──
-    if AI_HANYA_JIKA_MENTION and not di_mention:
+    # ── 2. Balas AI kalau di-mention ATAU reply ke pesan bot ──
+    if not di_mention and not di_reply_ke_bot:
         return
 
-    logger.info("  → Tidak ada kata kunci, tanya ke Groq AI...")
-
+    logger.info("  → Di-mention / reply ke bot, tanya ke Groq AI...")
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id,
         action="typing"
@@ -184,8 +189,11 @@ async def welcome_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Bot aktif! ✅\n"
-        "Saya siap menjawab pertanyaan seputar lowongan kerja & karier. "
-        "Gunakan kata kunci atau tanya bebas — saya akan bantu dengan AI! 🤖"
+        "Saya siap menjawab pertanyaan seputar lowongan kerja & karier.\n\n"
+        "💡 Cara pakai:\n"
+        "• Ketik kata kunci (halo, cv, loker, dll)\n"
+        "• Mention saya: @namabot pertanyaanmu\n"
+        "• Reply pesan saya untuk tanya lanjut 🤖"
     )
 
 
@@ -193,7 +201,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     daftar = "\n".join([f"• {k}" for k in KATA_KUNCI.keys()])
     await update.message.reply_text(
         f"📋 Kata kunci yang langsung saya kenali:\n\n{daftar}\n\n"
-        "💡 Pertanyaan lain di luar daftar ini akan dijawab oleh AI secara otomatis!"
+        "💡 Pertanyaan lain? Mention atau reply pesan saya, akan dijawab AI!"
     )
 
 
