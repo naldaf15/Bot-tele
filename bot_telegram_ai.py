@@ -93,7 +93,7 @@ HANYA_DI_GRUP = True
 
 # Bot AI hanya balas kalau di-mention (@username_bot)?
 # True = harus di-mention dulu | False = balas semua pesan (kalau tidak ada kata kunci)
-AI_HANYA_JIKA_MENTION = False
+AI_HANYA_JIKA_MENTION = True
 
 AKTIFKAN_LOG = True
 
