@@ -330,6 +330,18 @@ async def welcome_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def cmd_bikin_cv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📄 *Pembuatan CV Baru*\n\nUntuk pembuatan CV baru silahkan klik link berikut:\n👉 https://t.me/c/1211036502/2919533",
+        parse_mode="Markdown"
+    )
+
+async def cmd_update_cv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🔄 *Update CV*\n\nUntuk update CV silahkan klik link berikut:\n👉 https://t.me/c/1211036502/2919519",
+        parse_mode="Markdown"
+    )
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Bot aktif! ✅\n\n"
@@ -367,6 +379,8 @@ def main():
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("start",     cmd_start))
     app.add_handler(CommandHandler("help",      cmd_help))
+    app.add_handler(CommandHandler("bikin_CV",  cmd_bikin_cv))
+    app.add_handler(CommandHandler("update_CV", cmd_update_cv))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_member))
     app.add_handler(MessageHandler(chat_filter & ~filters.COMMAND, auto_balas))
 
