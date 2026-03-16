@@ -289,9 +289,9 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── Handler Pesan ──
 
 def extract_linkedin_url(teks: str) -> str:
-    """Cari link LinkedIn dalam teks."""
+    """Cari link LinkedIn dalam teks (jobs, posts, atau URL apapun dari linkedin.com)."""
     import re
-    pattern = r'https?://(?:www\.)?linkedin\.com/jobs/(?:view|collections)/[^\s]+'
+    pattern = r'https?://(?:www\.)?linkedin\.com/[^\s]+'
     match = re.search(pattern, teks)
     return match.group(0) if match else ""
 
