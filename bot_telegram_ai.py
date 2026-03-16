@@ -1,29 +1,19 @@
 """
-Bot Telegram Auto Balas — Kata Kunci + Info Admin + Groq AI (GRATIS)
-=====================================================================
+Bot Telegram Auto Balas — Kata Kunci + Google Sheets + Groq AI (GRATIS)
+=======================================================================
 Cara pakai:
-1. py -m pip install python-telegram-bot requests
-2. Isi TOKEN, GROQ_API_KEY, dan ADMIN_IDS di bawah
-3. Matikan Privacy Mode bot via @BotFather (/setprivacy → Disable)
-4. Tambahkan bot ke grup & jadikan Admin
-5. Jalankan: py bot_telegram_ai.py
-
-Perintah admin:
-  /tambah nama | deskripsi   → simpan info loker
-  /hapus nama                → hapus info loker
-  /daftar                    → lihat semua info tersimpan
-  /broadcast pesan           → kirim pesan ke semua grup
-
-Alur:
-  Pesan masuk → Cek kata kunci → (cocok) langsung balas
-                               → (tidak cocok) cek mention/reply
-                               → gabungkan info admin + tanya Groq AI → balas
+1. py -m pip install python-telegram-bot requests gspread google-auth
+2. Set variabel di Railway: TOKEN, GROQ_API_KEY, SHEET_ID, GOOGLE_CREDENTIALS
+3. Jalankan: py bot_telegram_ai.py
 """
 
 import logging
 import os
 import json
 import requests
+from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -34,17 +24,16 @@ from telegram.ext import (
 )
 
 # ─────────────────────────────────────────
-#  KONFIGURASI — edit bagian ini
+#  KONFIGURASI
 # ─────────────────────────────────────────
 
 TOKEN        = os.environ.get("TOKEN", "ISI_TOKEN_BOT_TELEGRAM_KAMU")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "ISI_GROQ_API_KEY_KAMU")
+SHEET_ID     = os.environ.get("SHEET_ID", "ISI_SHEET_ID_KAMU")
+GOOGLE_CREDS = os.environ.get("GOOGLE_CREDENTIALS", "")
 
-# Isi dengan username admin (tanpa @), bisa lebih dari satu
-ADMIN_USERNAMES = ["Random_Email", "username_admin2"]
-
-# File penyimpanan info dari admin
-INFO_FILE = "info_loker.json"
+# Isi dengan username admin (tanpa @)
+ADMIN_USERNAMES = ["Random_Email"]
 
 # Kepribadian bot AI
 SYSTEM_PROMPT = """Kamu adalah asisten grup Telegram khusus lowongan kerja yang ramah, profesional, dan helpful.
@@ -91,11 +80,10 @@ KATA_KUNCI = {
 # ─────────────────────────────────────────
 
 HANYA_DI_GRUP         = True
-AI_HANYA_JIKA_MENTION = True
 AKTIFKAN_LOG          = True
 
 # ─────────────────────────────────────────
-#  KODE BOT — tidak perlu diedit
+#  KODE BOT
 # ─────────────────────────────────────────
 
 if AKTIFKAN_LOG:
@@ -107,46 +95,87 @@ if AKTIFKAN_LOG:
 logger = logging.getLogger(__name__)
 
 
-# ── Manajemen info dari admin ──
+# ── Google Sheets ──
+
+def get_sheet():
+    """Koneksi ke Google Sheets."""
+    try:
+        creds_dict = json.loads(GOOGLE_CREDS)
+        scopes     = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds      = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        client     = gspread.authorize(creds)
+        sheet      = client.open_by_key(SHEET_ID).sheet1
+        return sheet
+    except Exception as e:
+        logger.error(f"Error koneksi Google Sheets: {e}")
+        return None
 
 def load_info() -> dict:
-    """Load info loker dari file JSON."""
-    if os.path.exists(INFO_FILE):
-        with open(INFO_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    """Load semua info dari Google Sheets."""
+    sheet = get_sheet()
+    if not sheet:
+        return {}
+    try:
+        rows = sheet.get_all_records()
+        return {row["nama"]: row["info"] for row in rows if row.get("nama")}
+    except Exception as e:
+        logger.error(f"Error load info: {e}")
+        return {}
 
-def save_info(data: dict):
-    """Simpan info loker ke file JSON."""
-    with open(INFO_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def tambah_info(nama: str, info: str) -> bool:
+    """Tambah info baru ke Google Sheets."""
+    sheet = get_sheet()
+    if not sheet:
+        return False
+    try:
+        # Cek kalau nama sudah ada, update
+        rows = sheet.get_all_records()
+        for i, row in enumerate(rows, start=2):
+            if row.get("nama", "").lower() == nama.lower():
+                sheet.update(f"A{i}:C{i}", [[nama, info, datetime.now().strftime("%Y-%m-%d %H:%M")]])
+                return True
+        # Kalau belum ada, tambah baris baru
+        sheet.append_row([nama, info, datetime.now().strftime("%Y-%m-%d %H:%M")])
+        return True
+    except Exception as e:
+        logger.error(f"Error tambah info: {e}")
+        return False
+
+def hapus_info(nama: str) -> bool:
+    """Hapus info dari Google Sheets."""
+    sheet = get_sheet()
+    if not sheet:
+        return False
+    try:
+        rows = sheet.get_all_records()
+        for i, row in enumerate(rows, start=2):
+            if row.get("nama", "").lower() == nama.lower():
+                sheet.delete_rows(i)
+                return True
+        return False
+    except Exception as e:
+        logger.error(f"Error hapus info: {e}")
+        return False
 
 def format_info_untuk_ai() -> str:
-    """Format semua info admin untuk dikirim ke AI."""
+    """Format semua info untuk dikirim ke AI."""
     data = load_info()
     if not data:
         return ""
     baris = ["INFO TERBARU DARI ADMIN:"]
-    for nama, isi in data.items():
-        baris.append(f"• {nama}: {isi}")
+    for nama, info in data.items():
+        baris.append(f"• {nama}: {info}")
     return "\n".join(baris)
 
 def is_admin(username: str) -> bool:
-    """Cek apakah user adalah admin."""
     return username and username.lower() in [a.lower() for a in ADMIN_USERNAMES]
 
 
 # ── Groq AI ──
 
 def tanya_groq(pesan: str) -> str:
-    """Kirim pesan ke Groq AI dengan konteks info admin."""
     info_admin = format_info_untuk_ai()
-
-    # Gabungkan info admin ke dalam pesan kalau ada
-    pesan_dengan_konteks = pesan
-    if info_admin:
-        pesan_dengan_konteks = f"{info_admin}\n\nPertanyaan member: {pesan}"
-
+    pesan_konteks = f"{info_admin}\n\nPertanyaan member: {pesan}" if info_admin else pesan
     try:
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -159,7 +188,7 @@ def tanya_groq(pesan: str) -> str:
                 "max_tokens": 500,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user",   "content": pesan_dengan_konteks},
+                    {"role": "user",   "content": pesan_konteks},
                 ],
             },
             timeout=15,
@@ -171,10 +200,10 @@ def tanya_groq(pesan: str) -> str:
         return "Maaf, saya sedang tidak bisa memproses pertanyaanmu. Silakan hubungi admin ya! 🙏"
 
 
-# ── Handler perintah admin ──
+# ── Perintah Admin ──
 
 async def cmd_tambah(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin tambah info: /tambah nama | deskripsi"""
+    """/tambah nama | deskripsi"""
     username = update.message.from_user.username or ""
     if not is_admin(username):
         await update.message.reply_text("⛔ Perintah ini hanya untuk admin.")
@@ -183,25 +212,28 @@ async def cmd_tambah(update: Update, context: ContextTypes.DEFAULT_TYPE):
     teks = " ".join(context.args)
     if "|" not in teks:
         await update.message.reply_text(
-            "Format salah. Gunakan:\n/tambah nama_loker | deskripsi lengkap\n\n"
-            "Contoh:\n/tambah PT Maju Jaya | Lowongan Staff Admin, gaji 4-5jt, domisili Jakarta, kirim CV ke hrd@majujaya.com"
+            "Format:\n/tambah nama_loker | deskripsi lengkap\n\n"
+            "Contoh:\n/tambah PT Yamaha | Staff Admin, gaji 4-6jt, email: hrd@yamaha.co.id, deadline 30 Maret"
         )
         return
 
-    nama, isi = teks.split("|", 1)
+    nama, info = teks.split("|", 1)
     nama = nama.strip()
-    isi  = isi.strip()
+    info = info.strip()
 
-    data = load_info()
-    data[nama] = isi
-    save_info(data)
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
 
-    logger.info(f"Admin @{username} tambah info: {nama}")
-    await update.message.reply_text(f"✅ Info berhasil disimpan!\n\n📌 *{nama}*\n{isi}", parse_mode="Markdown")
+    if tambah_info(nama, info):
+        await update.message.reply_text(
+            f"✅ Info berhasil disimpan ke Google Sheets!\n\n📌 *{nama}*\n{info}",
+            parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text("❌ Gagal menyimpan. Coba lagi ya!")
 
 
 async def cmd_hapus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin hapus info: /hapus nama"""
+    """/hapus nama"""
     username = update.message.from_user.username or ""
     if not is_admin(username):
         await update.message.reply_text("⛔ Perintah ini hanya untuk admin.")
@@ -212,36 +244,35 @@ async def cmd_hapus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Format: /hapus nama_loker")
         return
 
-    data = load_info()
-    if nama in data:
-        del data[nama]
-        save_info(data)
+    if hapus_info(nama):
         await update.message.reply_text(f"🗑️ Info *{nama}* berhasil dihapus.", parse_mode="Markdown")
     else:
         await update.message.reply_text(f"❌ Info *{nama}* tidak ditemukan.\n\nKetik /daftar untuk lihat semua info.", parse_mode="Markdown")
 
 
 async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lihat semua info tersimpan: /daftar"""
+    """/daftar"""
     username = update.message.from_user.username or ""
     if not is_admin(username):
         await update.message.reply_text("⛔ Perintah ini hanya untuk admin.")
         return
 
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     data = load_info()
+
     if not data:
-        await update.message.reply_text("📭 Belum ada info yang tersimpan.\n\nTambahkan dengan:\n/tambah nama | deskripsi")
+        await update.message.reply_text("📭 Belum ada info tersimpan.\n\nTambahkan dengan:\n/tambah nama | deskripsi")
         return
 
     baris = ["📋 *Daftar Info Tersimpan:*\n"]
-    for i, (nama, isi) in enumerate(data.items(), 1):
-        baris.append(f"{i}. *{nama}*\n   {isi[:100]}{'...' if len(isi) > 100 else ''}")
+    for i, (nama, info) in enumerate(data.items(), 1):
+        baris.append(f"{i}. *{nama}*\n   {info[:120]}{'...' if len(info) > 120 else ''}")
 
     await update.message.reply_text("\n\n".join(baris), parse_mode="Markdown")
 
 
 async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin broadcast pesan: /broadcast pesan"""
+    """/broadcast pesan"""
     username = update.message.from_user.username or ""
     if not is_admin(username):
         await update.message.reply_text("⛔ Perintah ini hanya untuk admin.")
@@ -249,16 +280,15 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     pesan = " ".join(context.args)
     if not pesan:
-        await update.message.reply_text("Format: /broadcast isi pesanmu di sini")
+        await update.message.reply_text("Format: /broadcast isi pesanmu")
         return
 
     await update.message.reply_text(f"📢 *INFO TERBARU*\n\n{pesan}", parse_mode="Markdown")
 
 
-# ── Handler pesan biasa ──
+# ── Handler Pesan ──
 
 async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler utama."""
     pesan = update.message.text
     if not pesan:
         return
@@ -275,22 +305,20 @@ async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"[{update.message.chat.type}] @{pengirim}: {pesan[:80]}")
 
-    # ── 1. Cek kata kunci ──
+    # 1. Cek kata kunci
     for kata, balasan in KATA_KUNCI.items():
         if kata in pesan_lower:
-            logger.info(f"  → Kata kunci cocok: '{kata}'")
+            logger.info(f"  → Kata kunci: '{kata}'")
             await update.message.reply_text(balasan)
             return
 
-    # ── 2. Balas AI kalau di-mention atau reply ke bot ──
+    # 2. Balas AI kalau di-mention atau reply ke bot
     if not di_mention and not di_reply_ke_bot:
         return
 
-    logger.info("  → Tanya ke Groq AI dengan konteks info admin...")
+    logger.info("  → Tanya Groq AI + info Google Sheets...")
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-
-    balasan_ai = tanya_groq(pesan)
-    await update.message.reply_text(balasan_ai)
+    await update.message.reply_text(tanya_groq(pesan))
 
 
 async def welcome_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -305,7 +333,7 @@ async def welcome_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Bot aktif! ✅\n\n"
-        "💡 Cara pakai:\n"
+        "💡 Cara pakai member:\n"
         "• Ketik kata kunci (halo, cv, loker, dll)\n"
         "• Mention: @namabot pertanyaanmu\n"
         "• Reply pesan bot untuk tanya lanjut\n\n"
@@ -333,24 +361,19 @@ def main():
     else:
         chat_filter = filters.TEXT
 
-    # Perintah admin
     app.add_handler(CommandHandler("tambah",    cmd_tambah))
     app.add_handler(CommandHandler("hapus",     cmd_hapus))
     app.add_handler(CommandHandler("daftar",    cmd_daftar))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
-
-    # Perintah umum
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("help",  cmd_help))
-
-    # Pesan masuk
+    app.add_handler(CommandHandler("start",     cmd_start))
+    app.add_handler(CommandHandler("help",      cmd_help))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_member))
     app.add_handler(MessageHandler(chat_filter & ~filters.COMMAND, auto_balas))
 
-    print("=" * 45)
-    print("  Bot Telegram + Groq AI berjalan 🤖✨")
+    print("=" * 50)
+    print("  Bot Telegram + Google Sheets + Groq AI 🤖✨")
     print("  Tekan Ctrl+C untuk berhenti")
-    print("=" * 45)
+    print("=" * 50)
 
     app.run_polling()
 
