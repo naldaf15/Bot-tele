@@ -368,6 +368,68 @@ async def welcome_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def cmd_template(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/template — kirim template format lowongan untuk admin"""
+    await update.message.reply_text(
+        "📋 *Template Share Lowongan*
+
+"
+        "Copy teks di bawah ini, isi datanya, lalu kirim ke grup:
+
+"
+        "```
+"
+        "[Nama Perusahaan] - [Posisi] - [Kota]
+"
+        "Posisi: 
+"
+        "Penempatan: 
+"
+        "Gaji: 
+"
+        "Kualifikasi: 
+"
+        "Email: 
+"
+        "WhatsApp: 
+"
+        "Deadline: 
+"
+        "[Link LinkedIn / URL Lowongan]
+"
+        "```
+
+"
+        "✅ *Contoh isi:*
+
+"
+        "```
+"
+        "PT Yamaha Motor - Staff Admin - Cikarang
+"
+        "Posisi: Staff Administration
+"
+        "Penempatan: Cikarang, Jawa Barat
+"
+        "Gaji: Rp 4.000.000 - 6.000.000
+"
+        "Kualifikasi: Min D3 semua jurusan, fresh graduate welcome
+"
+        "Email: hrd@yamaha.co.id
+"
+        "WhatsApp: 08123456789
+"
+        "Deadline: 31 Maret 2026
+"
+        "https://linkedin.com/posts/yamaha_hiring
+"
+        "```
+
+"
+        "💡 Bot akan otomatis menyimpan info ini ke database!",
+        parse_mode="Markdown"
+    )
+
 async def cmd_bikin_cv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📄 *Pembuatan CV Baru*\n\nUntuk pembuatan CV baru silahkan klik link berikut:\n👉 https://t.me/c/1211036502/2919533",
@@ -417,6 +479,7 @@ def main():
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("start",     cmd_start))
     app.add_handler(CommandHandler("help",      cmd_help))
+    app.add_handler(CommandHandler("template",  cmd_template))
     app.add_handler(CommandHandler("bikin_CV",  cmd_bikin_cv))
     app.add_handler(CommandHandler("update_CV", cmd_update_cv))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_member))
