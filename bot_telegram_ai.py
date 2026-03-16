@@ -288,6 +288,13 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── Handler Pesan ──
 
+def extract_linkedin_url(teks: str) -> str:
+    """Cari link LinkedIn dalam teks."""
+    import re
+    pattern = r'https?://(?:www\.)?linkedin\.com/jobs/(?:view|collections)/[^\s]+'
+    match = re.search(pattern, teks)
+    return match.group(0) if match else ""
+
 async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pesan = update.message.text
     if not pesan:
@@ -304,6 +311,37 @@ async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     logger.info(f"[{update.message.chat.type}] @{pengirim}: {pesan[:80]}")
+
+    # ── Deteksi link LinkedIn dari admin ──
+    linkedin_url = extract_linkedin_url(pesan)
+    if linkedin_url and is_admin(pengirim):
+        from datetime import datetime
+
+        # Pisahkan baris-baris pesan
+        baris = [b.strip() for b in pesan.strip().splitlines() if b.strip()]
+
+        # Cari baris yang bukan URL → jadikan nama
+        baris_info = [b for b in baris if not b.startswith("http")]
+
+        if baris_info:
+            # Pakai baris pertama non-URL sebagai nama
+            nama_auto = baris_info[0]
+            # Sisa baris info (selain nama & URL) jadi deskripsi tambahan
+            deskripsi = " | ".join(baris_info[1:]) if len(baris_info) > 1 else ""
+            info_simpan = f"{deskripsi} | Link: {linkedin_url}" if deskripsi else f"Link: {linkedin_url}"
+        else:
+            # Tidak ada info sama sekali, pakai timestamp
+            nama_auto   = f"Loker LinkedIn {datetime.now().strftime('%d/%m %H:%M')}"
+            info_simpan = f"Link: {linkedin_url}"
+
+        if tambah_info(nama_auto, info_simpan):
+            await update.message.reply_text(
+                f"✅ Lowongan berhasil disimpan!\n\n"
+                f"📌 *{nama_auto}*\n{info_simpan}\n\n"
+                f"💡 Member bisa tanya ke bot untuk info ini.",
+                parse_mode="Markdown"
+            )
+        return
 
     # 1. Cek kata kunci
     for kata, balasan in KATA_KUNCI.items():
