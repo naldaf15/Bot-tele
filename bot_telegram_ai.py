@@ -368,67 +368,33 @@ async def welcome_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+
 async def cmd_template(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/template — kirim template format lowongan untuk admin"""
-    await update.message.reply_text(
-        "📋 *Template Share Lowongan*
-
-"
-        "Copy teks di bawah ini, isi datanya, lalu kirim ke grup:
-
-"
-        "```
-"
-        "[Nama Perusahaan] - [Posisi] - [Kota]
-"
-        "Posisi: 
-"
-        "Penempatan: 
-"
-        "Gaji: 
-"
-        "Kualifikasi: 
-"
-        "Email: 
-"
-        "WhatsApp: 
-"
-        "Deadline: 
-"
-        "[Link LinkedIn / URL Lowongan]
-"
-        "```
-
-"
-        "✅ *Contoh isi:*
-
-"
-        "```
-"
-        "PT Yamaha Motor - Staff Admin - Cikarang
-"
-        "Posisi: Staff Administration
-"
-        "Penempatan: Cikarang, Jawa Barat
-"
-        "Gaji: Rp 4.000.000 - 6.000.000
-"
-        "Kualifikasi: Min D3 semua jurusan, fresh graduate welcome
-"
-        "Email: hrd@yamaha.co.id
-"
-        "WhatsApp: 08123456789
-"
-        "Deadline: 31 Maret 2026
-"
-        "https://linkedin.com/posts/yamaha_hiring
-"
-        "```
-
-"
-        "💡 Bot akan otomatis menyimpan info ini ke database!",
-        parse_mode="Markdown"
+    """template command"""
+    teks = (
+        "*Template Share Lowongan*\n\n"
+        "Copy teks berikut, isi datanya, lalu kirim ke grup:\n\n"
+        "[Nama Perusahaan] - [Posisi] - [Kota]\n"
+        "Posisi: \n"
+        "Penempatan: \n"
+        "Gaji: \n"
+        "Kualifikasi: \n"
+        "Email: \n"
+        "WhatsApp: \n"
+        "Deadline: \n"
+        "[Link LinkedIn / URL Lowongan]\n\n"
+        "*Contoh:*\n\n"
+        "PT Yamaha Motor - Staff Admin - Cikarang\n"
+        "Posisi: Staff Administration\n"
+        "Penempatan: Cikarang, Jawa Barat\n"
+        "Gaji: Rp 4.000.000 - 6.000.000\n"
+        "Kualifikasi: Min D3, fresh graduate welcome\n"
+        "Email: hrd@yamaha.co.id\n"
+        "WhatsApp: 08123456789\n"
+        "Deadline: 31 Maret 2026\n"
+        "https://linkedin.com/posts/yamaha"
     )
+    await update.message.reply_text(teks, parse_mode="Markdown")
 
 async def cmd_bikin_cv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
