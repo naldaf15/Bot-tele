@@ -184,7 +184,7 @@ def tanya_groq(pesan: str) -> str:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "llama-3.3-70b-versatile",
+                "model": "llama3-70b-8192",
                 "max_tokens": 500,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -194,6 +194,10 @@ def tanya_groq(pesan: str) -> str:
             timeout=15,
         )
         data = response.json()
+        logger.info(f"Groq response: {data}")
+        if "choices" not in data:
+            logger.error(f"Groq error response: {data}")
+            return "Maaf, AI sedang sibuk. Coba lagi sebentar ya! 🙏"
         return data["choices"][0]["message"]["content"]
     except Exception as e:
         logger.error(f"Error Groq API: {e}")
@@ -317,27 +321,28 @@ async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if linkedin_url and is_admin(pengirim):
         from datetime import datetime
 
-        # Pisahkan baris-baris pesan
+        # Pisahkan semua baris, buang yang kosong
         baris = [b.strip() for b in pesan.strip().splitlines() if b.strip()]
 
-        # Cari baris yang bukan URL → jadikan nama
+        # Pisahkan baris URL dan bukan URL
         baris_info = [b for b in baris if not b.startswith("http")]
+        baris_url  = [b for b in baris if b.startswith("http")]
 
         if baris_info:
-            # Pakai baris pertama non-URL sebagai nama
             nama_auto = baris_info[0]
-            # Sisa baris info (selain nama & URL) jadi deskripsi tambahan
-            deskripsi = " | ".join(baris_info[1:]) if len(baris_info) > 1 else ""
-            info_simpan = f"{deskripsi} | Link: {linkedin_url}" if deskripsi else f"Link: {linkedin_url}"
+            # Gabung semua info + URL jadi SATU baris dengan pemisah " | "
+            detail    = baris_info[1:] + [f"Link: {u}" for u in baris_url]
+            info_simpan = " | ".join(detail) if detail else f"Link: {linkedin_url}"
         else:
-            # Tidak ada info sama sekali, pakai timestamp
             nama_auto   = f"Loker LinkedIn {datetime.now().strftime('%d/%m %H:%M')}"
             info_simpan = f"Link: {linkedin_url}"
 
         if tambah_info(nama_auto, info_simpan):
+            # Tampilkan preview rapi ke grup
+            preview = info_simpan.replace(" | ", "\n")
             await update.message.reply_text(
                 f"✅ Lowongan berhasil disimpan!\n\n"
-                f"📌 *{nama_auto}*\n{info_simpan}\n\n"
+                f"📌 *{nama_auto}*\n{preview}\n\n"
                 f"💡 Member bisa tanya ke bot untuk info ini.",
                 parse_mode="Markdown"
             )
