@@ -27,15 +27,17 @@ ADMIN_USERNAMES = ["Random_Email"]
 HANYA_DI_GRUP   = True
 
 SYSTEM_PROMPT = """Kamu adalah asisten grup Telegram khusus lowongan kerja yang ramah dan profesional.
-Tugasmu membantu member mencari info loker, tips CV, dan interview. Jawab singkat & padat."""
+Tugasmu membantu member mencari info loker, tips CV, dan interview.
+Jawab singkat & padat (maks 4 kalimat). Prioritaskan referensi loker yang diberikan."""
 
-# Kata kunci tetap (Kembali lengkap seperti file asli kamu)
+# Kata kunci tetap (LENGKAP)
 KATA_KUNCI = {
     "halo": "Halo! 👋 Selamat datang di grup lowongan kerja. Ada yang bisa dibantu?",
     "loker": "Cek info terbaru di pinned message atau ketik /daftar untuk melihat list!",
     "cv": "Pastikan CV kamu ATS-friendly. Ketik /bikin_CV untuk info pembuatan!",
     "alamat": "Alamat kantor pusat kami ada di Jakarta Timur. Untuk detail hubungi admin.",
-    "tes": "Sudah siap untuk tes psikotes atau interview?",
+    "cara melamar": "Siapkan CV ATS-friendly, cek kualifikasi, dan kirim via email resmi perusahaan.",
+    "terima kasih": "Sama-sama! 😊 Semoga segera dapat pekerjaan yang diimpikan ya!",
 }
 
 # ─────────────────────────────────────────
@@ -70,28 +72,40 @@ def simpan_info(nama, info) -> bool:
     except:
         return False
 
+def hapus_info(nama_loker) -> bool:
+    sheet = get_sheet()
+    if not sheet: return False
+    try:
+        cell = sheet.find(nama_loker)
+        sheet.delete_rows(cell.row)
+        return True
+    except:
+        return False
+
 # ─────────────────────────────────────────
 #  LOGIKA AI & SMART SEARCH
 # ─────────────────────────────────────────
 
 def format_info_untuk_ai(pertanyaan_user: str) -> str:
-    """Mencari data yang relevan agar hemat token AI."""
+    """Mencari data yang relevan agar tidak melebihi limit 6000 token Groq."""
     data = load_info()
     if not data: return ""
     
     pertanyaan_lower = pertanyaan_user.lower()
     hasil_relevan = []
     
+    # Pencarian pintar berdasarkan kata kunci pertanyaan user
     for nama, info in data.items():
         if nama.lower() in pertanyaan_lower or any(k in nama.lower() for k in pertanyaan_lower.split()):
             hasil_relevan.append(f"• {nama}: {info[:250]}")
     
+    # Jika tidak ada yang cocok, ambil 3 data terbaru saja
     if not hasil_relevan:
         items = list(data.items())[-3:]
         for nama, info in items:
             hasil_relevan.append(f"• {nama}: {info[:200]}")
 
-    return "REFERENSI LOKER:\n" + "\n".join(hasil_relevan[:5])
+    return "REFERENSI DATA LOKER:\n" + "\n".join(hasil_relevan[:5])
 
 def tanya_groq(pesan: str) -> str:
     info_admin = format_info_untuk_ai(pesan)
@@ -130,22 +144,30 @@ async def cmd_tambah(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Gagal menyimpan ke Google Sheets.")
 
+async def cmd_hapus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.username not in ADMIN_USERNAMES: return
+    nama = " ".join(context.args)
+    if hapus_info(nama):
+        await update.message.reply_text(f"🗑️ Loker '{nama}' berhasil dihapus.")
+    else:
+        await update.message.reply_text("❌ Data tidak ditemukan.")
+
 async def cmd_cari(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyword = " ".join(context.args).lower()
     if not keyword:
-        await update.message.reply_text("Format: /cari [posisi/perusahaan]")
+        await update.message.reply_text("Format: /cari [posisi]")
         return
     data = load_info()
     hasil = [f"📌 *{n}*\n{i[:150]}..." for n, i in data.items() if keyword in n.lower()]
     if hasil:
         await update.message.reply_text("🔍 *Hasil Pencarian:*\n\n" + "\n\n".join(hasil[:10]), parse_mode="Markdown")
     else:
-        await update.message.reply_text(f"❌ Tidak ditemukan.")
+        await update.message.reply_text(f"❌ Tidak ditemukan loker untuk '{keyword}'.")
 
 async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_info()
     if not data:
-        await update.message.reply_text("📭 Kosong.")
+        await update.message.reply_text("📭 Database loker masih kosong.")
         return
     baris = [f"{i}. *{n}*" for i, n in enumerate(list(data.keys())[-15:], 1)]
     await update.message.reply_text("📋 *15 Loker Terbaru:*\n\n" + "\n".join(baris), parse_mode="Markdown")
@@ -154,7 +176,7 @@ async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pesan = update.message.text
     if not pesan: return
     
-    # 1. Kata Kunci Tetap
+    # 1. Cek Kata Kunci Tetap
     for k, v in KATA_KUNCI.items():
         if k in pesan.lower():
             await update.message.reply_text(v)
@@ -174,13 +196,16 @@ async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
     
-    app.add_handler(CommandHandler("tambah", cmd_tambah))
-    app.add_handler(CommandHandler("cari", cmd_cari))
-    app.add_handler(CommandHandler("daftar", cmd_daftar))
-    app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("Bot Aktif!")))
+    app.add_handler(CommandHandler("tambah",    cmd_tambah))
+    app.add_handler(CommandHandler("hapus",     cmd_hapus))
+    app.add_handler(CommandHandler("cari",      cmd_cari))
+    app.add_handler(CommandHandler("daftar",    cmd_daftar))
+    app.add_handler(CommandHandler("bikin_CV",  lambda u, c: u.message.reply_text("📄 Klik di sini: https://t.me/c/1211036502/2919533")))
+    app.add_handler(CommandHandler("start",     lambda u, c: u.message.reply_text("Bot Aktif! ✅")))
+    
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_balas))
     
-    print("Bot Berjalan...")
+    print("Bot sedang berjalan...")
     app.run_polling()
 
 if __name__ == "__main__":
