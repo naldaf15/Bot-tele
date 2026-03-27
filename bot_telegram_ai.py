@@ -184,7 +184,7 @@ def tanya_groq(pesan: str) -> str:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "llama3-70b-8192",
+                "model": "llama-3.1-8b-instant",
                 "max_tokens": 500,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
