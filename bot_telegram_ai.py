@@ -40,6 +40,17 @@ KATA_KUNCI = {
     "alamat": "Alamat kantor pusat kami ada di Jakarta Timur. Untuk detail hubungi admin.",
     "cara melamar": "Siapkan CV ATS-friendly, cek kualifikasi, dan kirim via email resmi perusahaan.",
     "terima kasih": "Sama-sama! 😊 Semoga segera dapat pekerjaan yang diimpikan ya!",
+    "kisi kisi": "📝 Kisi-kisi soal bisa cek di sini:\nhttps://t.me/c/1211036502/1/2974586",
+    "cara kirim email": "📧 Panduan lengkap cara kirim email lamaran bisa cek di sini:\nhttps://t.me/c/1211036502/2920839",
+    "kirim email": "📧 Panduan lengkap cara kirim email lamaran bisa cek di sini:\nhttps://t.me/c/1211036502/2920839",
+    "real atau hoax": "🔍 Tergantung dari sumber lowongannya.\n✅ Jika sumbernya resmi/terpercaya → kemungkinan besar REAL\n❓ Kalau masih ragu → tag admin saja ya!",
+    "hoax": "⚠️ Jika terindikasi hoax, jangan didatangi ya!\nTetap hati-hati demi keamanan 🙏",
+    "real": "🚀 Kalau sudah dipastikan real, langsung gas lamar!",
+    "info loker terbaru": "📢 Lowongan kerja update setiap hari di grup.\nLangsung cek & lamar ya, tidak perlu tanya lagi 👍\nKetik /daftar untuk lihat list terbaru!",
+    "update loker": "📢 Lowongan kerja update setiap hari di grup.\nLangsung cek & lamar ya, tidak perlu tanya lagi 👍\nKetik /daftar untuk lihat list terbaru!",
+    "update cv": "📄 Panduan update CV bisa cek di sini:\nhttps://t.me/c/1211036502/2919519",
+    "info kopdar": "📍 Buat yang mau ikut kopdar:\nPantau grup setiap Jumat & Sabtu\nNanti lokasi akan diumumkan di grup ya!",
+    "kopdar": "📍 Buat yang mau ikut kopdar:\nPantau grup setiap Jumat & Sabtu\nNanti lokasi akan diumumkan di grup ya!",
 }
 
 # ─────────────────────────────────────────
