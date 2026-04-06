@@ -90,22 +90,49 @@ def format_info_untuk_ai(pertanyaan_user: str) -> str:
     """Mencari data yang relevan agar tidak melebihi limit 6000 token Groq."""
     data = load_info()
     if not data: return ""
-    
+
     pertanyaan_lower = pertanyaan_user.lower()
+    # Kata-kata pendek yang tidak informatif (stop words)
+    stop_words = {"pt", "di", "dan", "yang", "ada", "info", "tentang", "loker",
+                  "untuk", "ke", "ini", "itu", "ya", "dong", "apa", "ada", "mau",
+                  "cari", "saya", "aku", "bisa", "kasih", "tahu", "tolong"}
+    
+    # Ambil kata kunci bermakna dari pertanyaan user (min 3 karakter, bukan stop word)
+    kata_pertanyaan = [
+        k for k in pertanyaan_lower.split()
+        if len(k) >= 3 and k not in stop_words
+    ]
+
     hasil_relevan = []
-    
-    # Pencarian pintar berdasarkan kata kunci pertanyaan user
+    skor = {}
+
     for nama, info in data.items():
-        if nama.lower() in pertanyaan_lower or any(k in nama.lower() for k in pertanyaan_lower.split()):
-            hasil_relevan.append(f"• {nama}: {info[:250]}")
-    
-    # Jika tidak ada yang cocok, ambil 3 data terbaru saja
+        nama_lower = nama.lower()
+        gabungan = (nama_lower + " " + info.lower())
+        nilai = 0
+
+        # Skor: setiap kata dari pertanyaan yang ditemukan di nama/info loker
+        for kata in kata_pertanyaan:
+            if kata in nama_lower:
+                nilai += 3   # bobot lebih tinggi jika match di nama
+            elif kata in gabungan:
+                nilai += 1
+
+        if nilai > 0:
+            skor[nama] = nilai
+
+    # Urutkan berdasarkan skor tertinggi
+    nama_terurut = sorted(skor, key=lambda x: skor[x], reverse=True)
+    for nama in nama_terurut[:5]:
+        hasil_relevan.append(f"• {nama}: {data[nama][:250]}")
+
+    # Jika tidak ada yang cocok sama sekali, kirim 5 data terbaru sebagai konteks umum
     if not hasil_relevan:
-        items = list(data.items())[-3:]
+        items = list(data.items())[-5:]
         for nama, info in items:
             hasil_relevan.append(f"• {nama}: {info[:200]}")
 
-    return "REFERENSI DATA LOKER:\n" + "\n".join(hasil_relevan[:5])
+    return "REFERENSI DATA LOKER:\n" + "\n".join(hasil_relevan)
 
 def tanya_groq(pesan: str) -> str:
     info_admin = format_info_untuk_ai(pesan)
