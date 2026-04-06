@@ -28,7 +28,9 @@ HANYA_DI_GRUP   = True
 
 SYSTEM_PROMPT = """Kamu adalah asisten grup Telegram khusus lowongan kerja yang ramah dan profesional.
 Tugasmu membantu member mencari info loker, tips CV, dan interview.
-Jawab singkat & padat (maks 4 kalimat). Prioritaskan referensi loker yang diberikan."""
+Jawab singkat & padat (maks 5 kalimat). Prioritaskan referensi loker yang diberikan.
+PENTING: Jika data referensi berisi informasi cara melamar, email, link, atau kontak, 
+WAJIB sertakan di jawaban secara lengkap tanpa dipotong."""
 
 # Kata kunci tetap (LENGKAP)
 KATA_KUNCI = {
@@ -124,13 +126,13 @@ def format_info_untuk_ai(pertanyaan_user: str) -> str:
     # Urutkan berdasarkan skor tertinggi
     nama_terurut = sorted(skor, key=lambda x: skor[x], reverse=True)
     for nama in nama_terurut[:5]:
-        hasil_relevan.append(f"• {nama}: {data[nama][:250]}")
+        hasil_relevan.append(f"• {nama}: {data[nama][:800]}")
 
     # Jika tidak ada yang cocok sama sekali, kirim 5 data terbaru sebagai konteks umum
     if not hasil_relevan:
         items = list(data.items())[-5:]
         for nama, info in items:
-            hasil_relevan.append(f"• {nama}: {info[:200]}")
+            hasil_relevan.append(f"• {nama}: {info[:500]}")
 
     return "REFERENSI DATA LOKER:\n" + "\n".join(hasil_relevan)
 
@@ -147,7 +149,7 @@ def tanya_groq(pesan: str) -> str:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": pesan_konteks},
                 ],
-                "max_tokens": 400
+                "max_tokens": 700
             },
             timeout=15
         )
