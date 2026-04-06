@@ -204,17 +204,34 @@ async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def auto_balas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pesan = update.message.text
     if not pesan: return
-    
-    # 1. Cek Kata Kunci Tetap
-    for k, v in KATA_KUNCI.items():
-        if k in pesan.lower():
-            await update.message.reply_text(v)
+
+    username = update.effective_user.username
+    pesan_lower = pesan.lower()
+
+    # 1. AUTO-SIMPAN LOKER dari Admin (format: Nama Loker | Info Lengkap)
+    #    Admin cukup posting langsung tanpa /tambah
+    if username in ADMIN_USERNAMES and "|" in pesan and len(pesan) > 30:
+        nama, info = pesan.split("|", 1)
+        nama = nama.strip()
+        info = info.strip()
+        if nama and info:
+            if simpan_info(nama, info):
+                await update.message.reply_text(f"✅ Loker *{nama}* berhasil disimpan ke database!", parse_mode="Markdown")
+            else:
+                await update.message.reply_text("⚠️ Gagal menyimpan ke Google Sheets.")
             return
 
-    # 2. Respon AI (Mention/Reply)
+    # 2. Cek Kata Kunci Tetap — hanya untuk pesan PENDEK (bukan postingan loker)
+    if len(pesan) < 80:
+        for k, v in KATA_KUNCI.items():
+            if k in pesan_lower:
+                await update.message.reply_text(v)
+                return
+
+    # 3. Respon AI (Mention/Reply)
     bot_username = f"@{context.bot.username}".lower()
     is_replied = update.message.reply_to_message and update.message.reply_to_message.from_user.id == context.bot.id
-    if bot_username in pesan.lower() or is_replied:
+    if bot_username in pesan_lower or is_replied:
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         await update.message.reply_text(tanya_groq(pesan))
 
